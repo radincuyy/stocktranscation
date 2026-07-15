@@ -89,11 +89,42 @@ Ini membuat tabel di PostgreSQL sesuai schema Prisma.
 
 ### Langkah 5 — Jalankan aplikasi
 
+Semua opsi di bawah dijalankan **setelah** database sudah up + migrate (langkah 3–4).
+
+#### Opsi A — Frontend + backend sekaligus (dari root)
+
 ```bash
+# pastikan kamu di folder root: studycasempa/
 npm run dev
 ```
 
-Script ini menjalankan **backend + frontend** bersamaan.
+Satu terminal, dua service jalan bareng.
+
+#### Opsi B — Masing-masing terpisah (tetap dari root)
+
+Buka **2 terminal**, keduanya di folder root:
+
+```bash
+# Terminal 1 — backend saja (NestJS → port 3001)
+npm run dev:backend
+
+# Terminal 2 — frontend saja (Next.js → port 3000)
+npm run dev:frontend
+```
+
+Cocok kalau mau log backend dan frontend terpisah, atau cuma ngerjain salah satu sisi.
+
+#### Opsi C — Langsung dari folder app
+
+```bash
+# Terminal 1
+cd apps/backend
+npm run start:dev
+
+# Terminal 2
+cd apps/frontend
+npm run dev
+```
 
 ### Langkah 6 — Cek apakah sudah jalan
 
@@ -125,15 +156,24 @@ Respons sukses kurang lebih:
 
 ## Ringkasan perintah
 
+### Dari root (`studycasempa/`)
+
 | Perintah | Fungsi |
 | --- | --- |
 | `npm run db:up` | Start PostgreSQL (Docker) |
 | `npm run db:down` | Stop PostgreSQL |
 | `npm run db:migrate` | Apply migration Prisma |
 | `npm run db:studio` | Buka Prisma Studio (lihat data di browser) |
-| `npm run dev` | Jalankan frontend + backend |
-| `npm run dev:frontend` | Frontend saja |
-| `npm run dev:backend` | Backend saja |
+| `npm run dev` | Frontend **+** backend bersamaan |
+| `npm run dev:frontend` | Frontend saja (Next.js) |
+| `npm run dev:backend` | Backend saja (NestJS) |
+
+### Dari folder app
+
+| Lokasi | Perintah | Fungsi |
+| --- | --- | --- |
+| `apps/backend` | `npm run start:dev` | Backend watch mode |
+| `apps/frontend` | `npm run dev` | Frontend dev server |
 
 ---
 
