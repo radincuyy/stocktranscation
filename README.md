@@ -1,92 +1,174 @@
 # Stock Transaction Module — PT Multi Power Aditama
 
-Technical case (Full Stack Developer): modul **Stock Transaction** untuk skenario manajemen stok dengan konversi satuan, sequence nomor transaksi, dan concurrent-safe generation.
+Technical case (Full Stack Developer): modul **Stock Transaction** untuk manajemen stok dengan konversi satuan, penambahan/pembatalan stok, dan nomor transaksi (sequence) yang aman saat multi-user.
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | Next.js (App Router) |
-| Backend | NestJS |
-| Database | PostgreSQL |
+| Layer | Technology | URL (dev) |
+| --- | --- | --- |
+| Frontend | Next.js (App Router) | http://localhost:3000 |
+| Backend | NestJS | http://localhost:3001/api |
+| Database | PostgreSQL 16 (Docker) | `localhost:5432` |
+| ORM | Prisma | — |
 
-## Repository Structure
+## Struktur Project
 
 ```text
 studycasempa/
 ├── apps/
-│   ├── frontend/     # Next.js
-│   └── backend/      # NestJS
-├── package.json      # root scripts (dev both apps)
+│   ├── frontend/          # Next.js
+│   └── backend/           # NestJS + Prisma
+│       └── prisma/        # schema & migrations
+├── docker-compose.yml     # PostgreSQL
+├── package.json           # script monorepo
 └── README.md
 ```
 
 ## Prerequisites
 
-- Node.js 20+ (disarankan LTS)
-- npm
-- PostgreSQL
+Pastikan sudah terpasang:
 
-## Getting Started
+1. **Node.js 20+** — cek: `node -v`
+2. **npm** — cek: `npm -v`
+3. **Docker Desktop** — harus **running** sebelum start database
 
-### 1. Install dependencies
+---
+
+## Cara Menjalankan
+
+Jalankan semua perintah dari folder root project: `studycasempa/`.
+
+### Langkah 1 — Install dependency
 
 ```bash
-# root (concurrently + scripts monorepo)
 npm install
-
-# frontend
-cd apps/frontend
-npm install
-
-# backend
-cd ../backend
-npm install
+npm --prefix apps/backend install
+npm --prefix apps/frontend install
 ```
 
-### 2. Run development servers
+### Langkah 2 — Siapkan file environment
 
-Dari **root** monorepo:
+Salin file contoh (hanya sekali, atau jika file `.env` belum ada):
+
+**Windows (PowerShell / CMD):**
+
+```bash
+copy apps\backend\.env.example apps\backend\.env
+copy apps\frontend\.env.example apps\frontend\.env.local
+```
+
+**macOS / Linux:**
+
+```bash
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env.local
+```
+
+Isi default sudah cocok dengan `docker-compose.yml`. Tidak perlu diubah untuk development lokal.
+
+### Langkah 3 — Nyalakan database
+
+1. Buka **Docker Desktop** dan pastikan statusnya running.
+2. Di root project:
+
+```bash
+npm run db:up
+```
+
+Tunggu beberapa detik sampai container PostgreSQL ready.
+
+### Langkah 4 — Jalankan migrasi database
+
+```bash
+npm run db:migrate
+```
+
+Ini membuat tabel di PostgreSQL sesuai schema Prisma.
+
+> Jika diminta nama migration dan database sudah pernah di-migrate, cukup Enter / lewati.
+
+### Langkah 5 — Jalankan aplikasi
 
 ```bash
 npm run dev
 ```
 
-Script ini menjalankan:
+Script ini menjalankan **backend + frontend** bersamaan.
 
-- Backend NestJS → biasanya `http://localhost:3000` (default Nest)
-- Frontend Next.js → biasanya `http://localhost:3000` **atau** port Next default
+### Langkah 6 — Cek apakah sudah jalan
 
-> **Catatan:** default Nest dan Next sama-sama sering memakai port `3000`. Saat integrasi API, backend akan diarahkan ke port lain (mis. `3001`) agar tidak bentrok. Untuk sekarang, jalankan terpisah jika port conflict:
-
-```bash
-# terminal 1 — backend
-npm run dev:backend
-
-# terminal 2 — frontend
-npm run dev:frontend
-```
-
-Atau dari masing-masing app:
-
-```bash
-# apps/backend
-npm run start:dev
-
-# apps/frontend
-npm run dev
-```
-
-## Scripts (root)
-
-| Command | Description |
+| Cek | Alamat |
 | --- | --- |
-| `npm run dev` | Jalankan frontend + backend bersamaan |
-| `npm run dev:frontend` | Next.js dev server saja |
-| `npm run dev:backend` | NestJS watch mode saja |
+| Frontend | http://localhost:3000 |
+| Backend health | http://localhost:3001/api/health |
 
-## Scope (ringkas)
+Contoh cek backend (PowerShell):
 
-1. **Master Barang** — nama, SKU, satuan pembelian/penjualan, konversi satuan  
-2. **Transaksi stok** — penambahan stok, pembatalan (cancel) dengan rollback quantity  
-3. **Sequence** — auto `STK/<Hari>/<Bulan Romawi>/<Tahun>/<Running Number>`, manual unique, concurrent-safe  
+```powershell
+Invoke-RestMethod http://localhost:3001/api/health
+```
+
+Respons sukses kurang lebih:
+
+```json
+{
+  "success": true,
+  "message": "Service healthy",
+  "data": {
+    "status": "ok",
+    "database": "up"
+  }
+}
+```
+
+---
+
+## Ringkasan perintah
+
+| Perintah | Fungsi |
+| --- | --- |
+| `npm run db:up` | Start PostgreSQL (Docker) |
+| `npm run db:down` | Stop PostgreSQL |
+| `npm run db:migrate` | Apply migration Prisma |
+| `npm run db:studio` | Buka Prisma Studio (lihat data di browser) |
+| `npm run dev` | Jalankan frontend + backend |
+| `npm run dev:frontend` | Frontend saja |
+| `npm run dev:backend` | Backend saja |
+
+---
+
+## Port yang dipakai
+
+| Service | Port |
+| --- | --- |
+| Frontend (Next.js) | `3000` |
+| Backend (NestJS) | `3001` |
+| PostgreSQL | `5432` |
+
+Frontend memanggil API lewat: `http://localhost:3001/api`  
+(atur di `apps/frontend/.env.local` → `NEXT_PUBLIC_API_URL`)
+
+---
+
+## Scope fitur (case)
+
+1. **Master Barang** — nama, SKU, satuan pembelian, satuan penjualan, konversi satuan  
+2. **Transaksi stok** — penambahan stok; cancel mengembalikan stok dengan konversi yang benar  
+3. **Sequence** — format `STK/<Nama Hari>/<Bulan Romawi>/<Tahun>/<Running Number>` (auto, manual unique, concurrent-safe)
+
+Contoh sequence: `STK/Senin/VII/2026/00001`
+
+---
+
+## Troubleshooting
+
+| Masalah | Solusi |
+| --- | --- |
+| `db:up` gagal / Docker error | Pastikan **Docker Desktop** sudah dibuka dan running |
+| Port `5432` sudah dipakai | Stop service PostgreSQL lokal lain, atau ubah port di `docker-compose.yml` |
+| Backend error `DATABASE_URL` | Pastikan `apps/backend/.env` ada (salin dari `.env.example`) |
+| Health `database` tidak `up` | Jalankan ulang `npm run db:up`, lalu `npm run db:migrate` |
+| Frontend tidak connect API | Cek backend di port `3001` dan isi `NEXT_PUBLIC_API_URL` di `.env.local` |
+| Port `3000` / `3001` bentrok | Matikan proses yang memakai port itu, atau ubah `PORT` di backend `.env` |
+
+---
