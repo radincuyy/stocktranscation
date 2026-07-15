@@ -1,0 +1,19 @@
+{
+  "name": "studycasempa",
+  "version": "1.0.0",
+  "description": "Technical test for PT. Multi Power Aditama",
+  "license": "ISC",
+  "author": "radincuyy",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "cd apps/backend && npm run start:dev",
+    "dev:frontend": "cd apps/frontend && npm run dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "concurrently": "^10.0.3"
+  },
+  "devDependencies": {}
+}
