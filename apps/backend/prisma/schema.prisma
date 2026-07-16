@@ -1,4 +1,3 @@
-// Prisma schema — Stock Transaction module
 // https://pris.ly/d/prisma-schema
 
 generator client {
@@ -14,7 +13,7 @@ enum TransactionStatus {
   CANCELLED
 }
 
-/// Unit used on a stock transaction form (grosir vs eceran)
+/// Satuan yang dipakai di form transaksi stok (grosir vs eceran)
 enum StockUnitType {
   PURCHASE
   SALE
@@ -26,9 +25,9 @@ model Product {
   sku            String   @unique
   purchaseUnit   String
   saleUnit       String
-  /// 1 purchase unit = conversionRate sale units (e.g. 1 Drum = 200 Liter)
+  /// 1 satuan beli = conversionRate satuan jual (contoh: 1 Drum = 200 Liter)
   conversionRate Decimal  @db.Decimal(18, 6)
-  /// Stock always stored in sale (base) unit, supports decimals
+  /// Stok selalu disimpan dalam satuan jual (base), mendukung desimal
   stockQty       Decimal  @default(0) @db.Decimal(18, 6)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -43,8 +42,11 @@ model StockTransaction {
   sequenceNo String            @unique
   date       DateTime          @db.Date
   productId  String            @db.Uuid
+  /// Quantity yang diinput user (satuan beli atau jual)
   quantity   Decimal           @db.Decimal(18, 6)
   unitType   StockUnitType
+  /// Delta stok absolut dalam satuan base (jual) — dipakai saat cancel
+  baseQty    Decimal           @db.Decimal(18, 6)
   note       String?
   status     TransactionStatus @default(ACTIVE)
   createdAt  DateTime          @default(now())
@@ -58,8 +60,8 @@ model StockTransaction {
   @@map("stock_transactions")
 }
 
-/// Row-lock friendly counter for concurrent sequence generation
-/// key example: "Senin-VII-2026"
+/// Counter sequence dengan row-lock untuk generate aman saat concurrent
+/// contoh key: "Senin-VII-2026"
 model SequenceCounter {
   id        String   @id @default(uuid()) @db.Uuid
   key       String   @unique
