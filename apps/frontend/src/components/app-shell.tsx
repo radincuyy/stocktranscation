@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Package, Cube, Pulse, ArrowsDownUp } from "@phosphor-icons/react";
+import { Package, Cube, ArrowsDownUp } from "@phosphor-icons/react";
 
 const nav = [
   { href: "/products", label: "Master Barang", icon: Package },
@@ -11,7 +11,6 @@ const nav = [
     label: "Transaksi Stok",
     icon: ArrowsDownUp,
   },
-  { href: "/health", label: "Health", icon: Pulse },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -40,6 +39,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-label={item.label}
+                  aria-current={active ? "page" : undefined}
                   className={[
                     "inline-flex items-center gap-2 rounded-[var(--radius-app)] px-3 py-2 text-sm font-medium transition-colors active:scale-[0.98]",
                     active

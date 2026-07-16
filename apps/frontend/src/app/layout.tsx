@@ -14,9 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MPA Stock | Master Barang",
+  title: {
+    default: "MPA Stock",
+    template: "%s | MPA Stock",
+  },
   description:
-    "Modul stock transaction - master barang, konversi satuan, dan inventory",
+    "Modul stock transaction — master barang, konversi satuan, dan inventory",
 };
 
 export default function RootLayout({

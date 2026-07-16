@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowClockwise,
   MagnifyingGlass,
@@ -11,7 +19,10 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
+import { formatQty } from "@/lib/format";
 import type { CreateProductInput, Product } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Toast, type ToastState } from "@/components/ui/toast";
 
 type FormState = {
   name: string;
@@ -39,6 +50,12 @@ export function ProductsView() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [toast, setToast] = useState<ToastState>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const dialogTitleId = useId();
+  const firstFieldRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +75,16 @@ export function ProductsView() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!panelOpen) return;
+    firstFieldRef.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !saving) closePanel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panelOpen, saving]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
@@ -69,6 +96,11 @@ export function ProductsView() {
         p.saleUnit.toLowerCase().includes(q),
     );
   }, [products, query]);
+
+  const zeroStockCount = useMemo(
+    () => products.filter((p) => Number(p.stockQty) === 0).length,
+    [products],
+  );
 
   function openCreate() {
     setEditing(null);
@@ -100,7 +132,6 @@ export function ProductsView() {
   function isUnitName(value: string): boolean {
     const v = value.trim();
     if (!v) return false;
-    // wajib ada huruf; tolak angka murni seperti "1" atau "200"
     if (!/[A-Za-z\u00C0-\u024F]/.test(v)) return false;
     if (/^\d+([.,]\d+)?$/.test(v)) return false;
     return true;
@@ -138,8 +169,10 @@ export function ProductsView() {
     try {
       if (editing) {
         await apiPatch<Product>(`/products/${editing.id}`, payload);
+        setToast({ message: "Barang berhasil diperbarui.", tone: "success" });
       } else {
         await apiPost<Product>("/products", payload);
+        setToast({ message: "Barang berhasil ditambahkan.", tone: "success" });
       }
       closePanel();
       await load();
@@ -150,16 +183,22 @@ export function ProductsView() {
     }
   }
 
-  async function onDelete(product: Product) {
-    const ok = window.confirm(
-      `Hapus master barang "${product.name}" (${product.sku})?`,
-    );
-    if (!ok) return;
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await apiDelete<Product>(`/products/${product.id}`);
+      await apiDelete<Product>(`/products/${deleteTarget.id}`);
+      setToast({
+        message: `"${deleteTarget.name}" dihapus.`,
+        tone: "success",
+      });
+      setDeleteTarget(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menghapus");
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -189,7 +228,7 @@ export function ProductsView() {
             className="inline-flex items-center gap-2 rounded-[var(--radius-app)] border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted active:scale-[0.98]"
           >
             <ArrowClockwise size={16} />
-            Refresh
+            Muat ulang
           </button>
           <button
             type="button"
@@ -202,24 +241,14 @@ export function ProductsView() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <StatCard
           label="Total SKU"
           value={loading ? "-" : String(products.length)}
         />
         <StatCard
-          label="Total stok (base unit)"
-          value={
-            loading
-              ? "-"
-              : products
-                  .reduce((sum, p) => sum + Number(p.stockQty || 0), 0)
-                  .toLocaleString("id-ID", { maximumFractionDigits: 3 })
-          }
-        />
-        <StatCard
-          label="Filter aktif"
-          value={query ? String(filtered.length) : "Semua"}
+          label="SKU stok kosong"
+          value={loading ? "-" : String(zeroStockCount)}
         />
       </div>
 
@@ -234,6 +263,7 @@ export function ProductsView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cari nama, SKU, atau satuan"
+              aria-label="Cari barang"
               className="w-full rounded-[var(--radius-app)] border border-border bg-background py-2.5 pl-9 pr-3 text-sm outline-none ring-accent focus:ring-2"
             />
           </div>
@@ -243,8 +273,15 @@ export function ProductsView() {
         </div>
 
         {error ? (
-          <div className="m-4 rounded-[var(--radius-app)] border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-            {error}
+          <div className="m-4 flex flex-col gap-2 rounded-[var(--radius-app)] border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="shrink-0 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-semibold hover:bg-surface"
+            >
+              Coba lagi
+            </button>
           </div>
         ) : null}
 
@@ -253,11 +290,11 @@ export function ProductsView() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="h-16 animate-pulse rounded-[var(--radius-app)] bg-surface-muted"
+                className="h-16 animate-pulse rounded-[var(--radius-app)] bg-surface-muted motion-reduce:animate-none"
               />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">
               <Package size={22} weight="duotone" />
@@ -276,6 +313,21 @@ export function ProductsView() {
             >
               <Plus size={16} weight="bold" />
               Tambah barang
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+            <p className="font-medium">Tidak ada hasil untuk &ldquo;{query.trim()}&rdquo;</p>
+            <p className="max-w-sm text-sm text-muted">
+              Coba kata kunci lain, atau kosongkan pencarian untuk melihat semua
+              barang.
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="mt-2 rounded-[var(--radius-app)] border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-muted"
+            >
+              Hapus pencarian
             </button>
           </div>
         ) : (
@@ -311,9 +363,7 @@ export function ProductsView() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="font-mono font-medium">
-                        {Number(product.stockQty).toLocaleString("id-ID", {
-                          maximumFractionDigits: 6,
-                        })}
+                        {formatQty(product.stockQty)}
                       </span>
                       <span className="ml-1 text-muted">
                         {product.saleUnit}
@@ -327,11 +377,11 @@ export function ProductsView() {
                           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-surface-muted hover:text-foreground active:scale-[0.98]"
                         >
                           <PencilSimple size={14} />
-                          Edit
+                          Ubah
                         </button>
                         <button
                           type="button"
-                          onClick={() => void onDelete(product)}
+                          onClick={() => setDeleteTarget(product)}
                           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-danger-soft active:scale-[0.98]"
                         >
                           <Trash size={14} />
@@ -353,17 +403,31 @@ export function ProductsView() {
             type="button"
             aria-label="Tutup panel"
             className="absolute inset-0 cursor-default"
-            onClick={closePanel}
+            onClick={() => {
+              if (!saving) closePanel();
+            }}
           />
-          <div className="relative z-10 w-full max-w-lg rounded-t-[var(--radius-app)] border border-border bg-surface p-5 shadow-xl sm:rounded-[var(--radius-app)] sm:p-6">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            className="relative z-10 w-full max-w-lg rounded-t-[var(--radius-app)] border border-border bg-surface p-5 shadow-xl sm:rounded-[var(--radius-app)] sm:p-6"
+          >
             <div className="mb-5 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight">
-                  {editing ? "Edit barang" : "Tambah barang"}
+                <h2
+                  id={dialogTitleId}
+                  className="text-lg font-semibold tracking-tight"
+                >
+                  {editing ? "Ubah barang" : "Tambah barang"}
                 </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Isi satuan sebagai nama unit (Drum, Liter), bukan angka.
+                </p>
               </div>
               <button
                 type="button"
+                aria-label="Tutup"
                 onClick={closePanel}
                 className="rounded-lg p-1.5 text-muted hover:bg-surface-muted hover:text-foreground"
               >
@@ -373,6 +437,7 @@ export function ProductsView() {
 
             <form onSubmit={onSubmit} className="space-y-4">
               <Field
+                ref={firstFieldRef}
                 label="Nama barang"
                 value={form.name}
                 onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -404,7 +469,7 @@ export function ProductsView() {
                 />
               </div>
               <Field
-                label="Konversi Satuan"
+                label="Konversi satuan"
                 value={form.conversionRate}
                 onChange={(v) => setForm((f) => ({ ...f, conversionRate: v }))}
                 placeholder="200"
@@ -445,6 +510,26 @@ export function ProductsView() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Hapus master barang?"
+        description={
+          deleteTarget
+            ? `Hapus "${deleteTarget.name}" (${deleteTarget.sku})? Barang yang masih punya riwayat transaksi tidak dapat dihapus.`
+            : ""
+        }
+        confirmLabel="Ya, hapus"
+        cancelLabel="Batal"
+        danger
+        busy={deleting}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+      />
+
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
@@ -469,6 +554,7 @@ function Field({
   helper,
   mono,
   inputMode,
+  ref,
 }: {
   label: string;
   value: string;
@@ -478,11 +564,13 @@ function Field({
   helper?: string;
   mono?: boolean;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  ref?: React.Ref<HTMLInputElement>;
 }) {
   return (
     <label className="flex flex-col gap-2">
       <span className="text-sm font-medium text-foreground">{label}</span>
       <input
+        ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
