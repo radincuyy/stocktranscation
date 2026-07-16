@@ -73,16 +73,12 @@ export class StockTransactionsService {
           include: { product: true },
         });
 
-        await tx.product.update({
+        const freshProduct = await tx.product.update({
           where: { id: product.id },
           data: { stockQty: { increment: baseQty } },
         });
 
-        // muat ulang stok produk untuk response
-        const fresh = await tx.product.findUniqueOrThrow({
-          where: { id: product.id },
-        });
-        return { ...row, product: fresh };
+        return { ...row, product: freshProduct };
       });
 
       return toStockTransactionResponse(created);
@@ -117,46 +113,41 @@ export class StockTransactionsService {
   }
 
   async cancel(id: string): Promise<StockTransactionResponse> {
-    try {
-      const updated = await this.prisma.$transaction(async (tx) => {
-        const row = await tx.stockTransaction.findUnique({
-          where: { id },
-          include: { product: true },
-        });
-        if (!row) {
-          throw new NotFoundException(`Transaction with id "${id}" not found`);
-        }
-        if (row.status === TransactionStatus.CANCELLED) {
-          throw new BadRequestException('Transaction already cancelled');
-        }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.stockTransaction.findUnique({
+        where: { id },
+        include: { product: true },
+      });
+      if (!row) {
+        throw new NotFoundException(`Transaction with id "${id}" not found`);
+      }
+      if (row.status === TransactionStatus.CANCELLED) {
+        throw new BadRequestException('Transaction already cancelled');
+      }
+      if (row.product.stockQty.lessThan(row.baseQty)) {
+        throw new BadRequestException(
+          'Cannot cancel: current stock is lower than transaction base quantity',
+        );
+      }
 
-        const product = await tx.product.findUniqueOrThrow({
-          where: { id: row.productId },
-        });
-        if (product.stockQty.lessThan(row.baseQty)) {
-          throw new BadRequestException(
-            'Cannot cancel: current stock is lower than transaction base quantity',
-          );
-        }
-
-        const cancelled = await tx.stockTransaction.update({
-          where: { id },
-          data: { status: TransactionStatus.CANCELLED },
-          include: { product: true },
-        });
-
-        const freshProduct = await tx.product.update({
-          where: { id: row.productId },
-          data: { stockQty: { decrement: row.baseQty } },
-        });
-
-        return { ...cancelled, product: freshProduct };
+      await tx.stockTransaction.update({
+        where: { id },
+        data: { status: TransactionStatus.CANCELLED },
       });
 
-      return toStockTransactionResponse(updated);
-    } catch (error) {
-      throw error;
-    }
+      const product = await tx.product.update({
+        where: { id: row.productId },
+        data: { stockQty: { decrement: row.baseQty } },
+      });
+
+      return {
+        ...row,
+        status: TransactionStatus.CANCELLED,
+        product,
+      };
+    });
+
+    return toStockTransactionResponse(updated);
   }
 
   private toBaseQty(

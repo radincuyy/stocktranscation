@@ -1,11 +1,10 @@
 {
   "name": "studycasempa",
   "version": "1.0.0",
-  "description": "Technical test for PT. Multi Power Aditama",
+  "private": true,
+  "description": "Stock Transaction module - technical case PT Multi Power Aditama",
   "license": "ISC",
   "author": "radincuyy",
-  "type": "commonjs",
-  "main": "index.js",
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:backend": "npm --prefix apps/backend run start:dev",
@@ -15,10 +14,10 @@
     "db:logs": "docker compose logs -f postgres",
     "db:migrate": "npm --prefix apps/backend run prisma:migrate",
     "db:generate": "npm --prefix apps/backend run prisma:generate",
-    "db:studio": "npm --prefix apps/backend run prisma:studio"
+    "db:studio": "npm --prefix apps/backend run prisma:studio",
+    "db:seed": "npm --prefix apps/backend run prisma:seed"
   },
   "dependencies": {
     "concurrently": "^10.0.3"
-  },
-  "devDependencies": {}
+  }
 }

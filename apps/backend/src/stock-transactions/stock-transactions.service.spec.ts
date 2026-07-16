@@ -58,10 +58,6 @@ describe('StockTransactionsService', () => {
             ...product,
             stockQty: new Prisma.Decimal(200),
           }),
-          findUniqueOrThrow: jest.fn().mockResolvedValue({
-            ...product,
-            stockQty: new Prisma.Decimal(200),
-          }),
         },
         stockTransaction: {
           create: jest.fn().mockResolvedValue({
