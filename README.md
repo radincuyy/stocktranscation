@@ -15,12 +15,38 @@ Technical case (Full Stack Developer): modul **Stock Transaction** untuk manajem
 
 ```text
 studycasempa/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # CI: backend test+build, frontend build
 ├── apps/
-│   ├── frontend/          # Next.js
-│   └── backend/           # NestJS + Prisma
-│       └── prisma/        # schema & migrations
-├── docker-compose.yml     # PostgreSQL
-├── package.json           # script monorepo
+│   ├── backend/                   # NestJS + Prisma
+│   │   ├── prisma/
+│   │   │   ├── migrations/        # SQL migrations
+│   │   │   ├── schema.prisma      # model Product, StockTransaction, SequenceCounter
+│   │   │   └── seed.ts            # data contoh Minyak (MYK-100)
+│   │   ├── src/
+│   │   │   ├── common/            # filter error, interceptor response, validators
+│   │   │   ├── prisma/            # PrismaModule / PrismaService
+│   │   │   ├── products/          # CRUD master barang
+│   │   │   ├── sequence/          # generate sequence + FOR UPDATE lock
+│   │   │   ├── stock-transactions/# penambahan stok + cancel
+│   │   │   ├── app.module.ts
+│   │   │   ├── app.controller.ts  # GET /api/health
+│   │   │   └── main.ts
+│   │   ├── test/                  # e2e health
+│   │   ├── package.json
+│   │   └── prisma.config.ts
+│   └── frontend/                  # Next.js (App Router)
+│       ├── public/
+│       ├── src/
+│       │   ├── app/               # routes: /, /products, /stock-transactions
+│       │   ├── components/        # app-shell, products-view, stock-transactions-view
+│       │   └── lib/               # api client, types, format angka
+│       ├── package.json
+│       └── next.config.ts
+├── docker-compose.yml             # PostgreSQL 16
+├── ERD.png                        # entity relationship diagram
+├── package.json                   # script monorepo (dev, db:*, seed)
 └── README.md
 ```
 
@@ -86,6 +112,14 @@ npm run db:migrate
 Ini membuat tabel di PostgreSQL sesuai schema Prisma.
 
 > Jika diminta nama migration dan database sudah pernah di-migrate, cukup Enter / lewati.
+
+### Langkah 4b — Seed data contoh (opsional)
+
+```bash
+npm run db:seed
+```
+
+Mengisi master **Minyak / MYK-100** (1 Drum = 200 Liter) plus 1 transaksi seed (+1 Drum → stok 200 Liter).
 
 ### Langkah 5 — Jalankan aplikasi
 
@@ -164,6 +198,7 @@ Respons sukses kurang lebih:
 | `npm run db:down` | Stop PostgreSQL |
 | `npm run db:migrate` | Apply migration Prisma |
 | `npm run db:studio` | Buka Prisma Studio (lihat data di browser) |
+| `npm run db:seed` | Isi data contoh Minyak (case) |
 | `npm run dev` | Frontend **+** backend bersamaan |
 | `npm run dev:frontend` | Frontend saja (Next.js) |
 | `npm run dev:backend` | Backend saja (NestJS) |
@@ -197,6 +232,21 @@ Frontend memanggil API lewat: `http://localhost:3001/api`
 3. **Sequence** — format `STK/<Nama Hari>/<Bulan Romawi>/<Tahun>/<Running Number>` (auto, manual unique, concurrent-safe)
 
 Contoh sequence: `STK/Senin/VII/2026/00001`
+
+## Cara pakai singkat
+
+1. Buka http://localhost:3000/products → buat/master barang (atau `npm run db:seed`)  
+2. Buka http://localhost:3000/stock-transactions → **Tambah stok** (grosir/eceran)  
+3. Cek stok di Master Barang naik sesuai konversi  
+4. **Cancel** transaksi → stok dikembalikan  
+
+ERD: lihat [`ERD.png`](./ERD.png).
+
+## Sequence & concurrency
+
+- **Auto:** nomor di-generate dari tanggal transaksi + counter per `Hari-BulanRomawi-Tahun`.  
+- **Manual:** isi field sequence (opsional); ditolak jika sudah dipakai (HTTP 409).  
+- **Concurrent:** counter di-lock dengan `SELECT ... FOR UPDATE` di dalam transaksi DB.
 
 ---
 
