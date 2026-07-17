@@ -14,7 +14,7 @@ Technical case (Full Stack Developer): modul **Stock Transaction** untuk manajem
 ## Struktur Project
 
 ```text
-studycasempa/
+stocktranscation/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                 # CI: backend test+build, frontend build
@@ -62,7 +62,14 @@ Pastikan sudah terpasang:
 
 ## Cara Menjalankan
 
-Jalankan semua perintah dari folder root project: `studycasempa/`.
+Jalankan semua perintah dari folder root project: `stocktranscation/`
+
+### Langkah 0 — Clone repository
+
+```bash
+git clone https://github.com/radincuyy/stocktranscation.git
+cd stocktranscation
+```
 
 ### Langkah 1 — Install dependency
 
@@ -128,7 +135,7 @@ Semua opsi di bawah dijalankan **setelah** database sudah up + migrate (langkah 
 #### Opsi A — Frontend + backend sekaligus (dari root)
 
 ```bash
-# pastikan kamu di folder root: studycasempa/
+# pastikan kamu di folder root: stocktranscation/
 npm run dev
 ```
 
@@ -190,7 +197,7 @@ Respons sukses kurang lebih:
 
 ## Ringkasan perintah
 
-### Dari root (`studycasempa/`)
+### Dari root (`stocktranscation/`)
 
 | Perintah | Fungsi |
 | --- | --- |
